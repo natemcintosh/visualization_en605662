@@ -35,4 +35,3 @@ def build_df_from_items(json_dict: dict) -> pd.DataFrame:
     df["count"] = df["count"].str.replace(",", "").astype("int")
     df.percent = df.percent.astype("float")
     return df
-

@@ -15,6 +15,7 @@ def main():
     obj_to_category(df)
     # Can't animate with datetime objects, so convert to day of year
     df["day_of_year"] = df.date.dt.dayofyear
+    df.sort_values("day_of_year", inplace=True)
 
     # Get the lat/lon out of the centroid column
     ll = [get_lat_lon(p) for p in df.centroid.astype("string")]
@@ -28,6 +29,7 @@ def main():
         hover_name="airportname",
         size="percentofbaseline",
         animation_frame="day_of_year",
+        animation_group="airportname",
         projection="natural earth",
     )
     # Save to file

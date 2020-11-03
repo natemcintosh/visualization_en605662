@@ -13,8 +13,8 @@ def main():
         df,
         x="num_published_lectures",
         y="avg_rating",
-        facet_row="is_paid",
         color="price_detail__amount",
+        hover_data=df.columns,
     )
     fig.write_html(os.path.join(this_dir, "../Sample01/Index01.html"))
 
