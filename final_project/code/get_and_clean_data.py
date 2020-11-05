@@ -1,7 +1,12 @@
 from urllib import request
+from urllib.error import HTTPError
 import json
 import itertools
-from typing import List
+from typing import Iterable, List
+from collections import Counter
+from warnings import warn
+from multiprocessing import Pool
+import os
 
 import pandas as pd
 
@@ -49,8 +54,29 @@ def get_unique_formulas(dfs: List[pd.DataFrame]) -> set:
     )
 
 
-def create_formula_json_url(package_name: str) -> str:
-    return "https://formulae.brew.sh/api/formula/" + package_name + ".json"
+def create_formula_json_url(formula_name: str) -> str:
+    return "https://formulae.brew.sh/api/formula/" + formula_name + ".json"
+
+
+def get_available_formula_json(formula_name: str) -> dict:
+    """
+    Get the json data if it exists for this formula
+    """
+    try:
+        return get_response(create_formula_json_url(formula_name))
+    except HTTPError:
+        return dict()
+    except:
+        warn("Could not read formula API, but not because it didn't exist")
+        return dict()
+
+
+def get_available_formula_json_parallel(formulae: Iterable[str]) -> List[dict]:
+    """
+    Call get_available_formula_json() on all the formulae in parallel
+    """
+    with Pool() as p:
+        return p.map(get_available_formula_json, formulae)
 
 
 def get_formula_or_cask(dict_keys) -> str:
@@ -87,5 +113,35 @@ install_and_error_urls = [
 ]
 
 if __name__ == "__main__":
+    from time import time
+
+    start_time = time()
+
+    # Build dataframes from the json data at the URLs listed above
     dfs = [build_df_from_items(get_response(url)) for url in install_and_error_urls]
-    formulas = get_unique_formulas(dfs)
+
+    # From all the formulas in `dfs`, get a list of the unique ones
+    formulas_with_args = get_unique_formulas(dfs)
+
+    # Many of the formulas have arguments with them. Get just the name of the formula
+    bare_formulas = set(f.split()[0] for f in formulas_with_args)
+
+    # For each formula, try to get it's json data. There are probably a few thousand, so
+    # this may take a few minutes
+    formula_json = get_available_formula_json_parallel(bare_formulas)
+
+    # Save off the data so I don't have to get it every time I test the script
+    this_dir = os.path.dirname(__file__)
+    with open(os.path.join(this_dir, "../data/formula_info.json"), "w") as f:
+        f.write(json.dumps(formula_json))
+
+    # Count the number of times a formula is used as a dependency
+    depended_upon_formulae = Counter(
+        itertools.chain.from_iterable(f.get("dependencies", []) for f in formula_json)
+    )
+    depended_upon_formulae = pd.DataFrame(
+        depended_upon_formulae.items(), columns=["formula", "count"]
+    )
+
+    run_time = time() - start_time
+    print(f"get_and_clean_data.py -- {run_time:.2f}s")
