@@ -2,11 +2,12 @@ from urllib import request
 from urllib.error import HTTPError
 import json
 import itertools
-from typing import Iterable, List
+from typing import Dict, Iterable, List
 from collections import Counter
 from warnings import warn
 from multiprocessing import Pool
 import os
+import re
 
 import pandas as pd
 
@@ -88,6 +89,79 @@ def get_formula_or_cask(dict_keys) -> str:
         raise KeyError("Could not find 'formula' or 'cask' in the keys")
 
 
+def create_formula_install_df(data_dict: Dict[str, pd.DataFrame]) -> pd.DataFrame:
+    """
+    Takes a dictionary of all the data downloaded, and produces a single dataframe with
+    the columns
+        - formula
+        - count
+        - pct_on_request
+        - percent
+        - os
+        - n_days
+    """
+    # Downselect to just the dfs of formula data
+    downselected = {
+        title: data_dict[title]
+        for title in data_dict.keys()
+        if ("cask" not in title) and ("build" not in title)
+    }
+
+    # Split into install and install on request
+    installs = {
+        title: downselected[title]
+        for title in downselected.keys()
+        if "on-request" not in title
+    }
+    titles = set(downselected.keys())
+    on_request = {
+        title: downselected[title] for title in titles.difference(installs.keys())
+    }
+
+    # Build up a dataframe from the regular install dataframes
+    reg_df = pd.concat(
+        [add_desired_cols(url, df) for url, df in installs.items()]
+    ).drop("number", axis="columns")
+
+    # Create the same columns for the requested
+    on_request_with_cols = pd.concat(
+        [add_desired_cols(url, df) for url, df in on_request.items()]
+    ).drop("number", axis="columns")
+
+    # Join the two dfs
+    main_df = reg_df.merge(
+        on_request_with_cols,
+        on=["formula", "os", "n_days"],
+        suffixes=["_regular", "_on_request"],
+    )
+
+    # Calculate percent installed on request
+    main_df["pct_on_request"] = main_df.count_on_request / main_df.count_regular * 100
+
+    # Because we can't pull all the data instantaneously, there are some inaccuracies
+    # where pct_on_request > 100. Remove these rows
+    main_df = main_df.loc[main_df.pct_on_request.le(100)]
+
+    return main_df
+
+
+def add_desired_cols(url: str, df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Take in a dataframe and add the columns `os` and `n_days`
+    """
+    # Get the OS
+    os = "linux" if "linux" in url else "macos"
+
+    # Get the number of days this set of data is relevant for
+    n_days = int(re.findall(r"(\d+)d\.json$", url)[0])
+
+    # Add the columns
+    df["os"] = os
+    df.os = df.os.astype("string")
+    df["n_days"] = n_days
+    return df
+
+
 install_and_error_urls = [
     "https://formulae.brew.sh/api/analytics/install/30d.json",
     "https://formulae.brew.sh/api/analytics/install/90d.json",
@@ -138,7 +212,7 @@ if __name__ == "__main__":
         formula_json = get_available_formula_json_parallel(bare_formulas)
 
         # Save off the data so I don't have to get it every time I test the script
-        with open(os.path.join(this_dir, "../data/formula_info.json"), "w") as f:
+        with open(data_file, "w") as f:
             f.write(json.dumps(formula_json))
 
     # Count the number of times a formula is used as a dependency
@@ -148,6 +222,13 @@ if __name__ == "__main__":
     depended_upon_formulae = pd.DataFrame(
         depended_upon_formulae.items(), columns=["formula", "count"]
     ).sort_values("count", ascending=False)
+
+    # Create dict of url: df
+    data_dict = dict(zip(install_and_error_urls, dfs))
+
+    # Get all formula install events into a single df with columns:
+    # formula, count, pct_on_request, percent, os, n_days
+    formula_installs = create_formula_install_df(data_dict)
 
     run_time = time() - start_time
     print(f"get_and_clean_data.py -- {run_time:.2f}s")
