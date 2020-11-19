@@ -126,14 +126,20 @@ if __name__ == "__main__":
     # Many of the formulas have arguments with them. Get just the name of the formula
     bare_formulas = set(f.split()[0] for f in formulas_with_args)
 
-    # For each formula, try to get it's json data. There are probably a few thousand, so
-    # this may take a few minutes
-    formula_json = get_available_formula_json_parallel(bare_formulas)
-
-    # Save off the data so I don't have to get it every time I test the script
+    # If data exists in a data folder, get it. If not, get the data from the internet
     this_dir = os.path.dirname(__file__)
-    with open(os.path.join(this_dir, "../data/formula_info.json"), "w") as f:
-        f.write(json.dumps(formula_json))
+    data_file = os.path.join(this_dir, "..", "data", "formula_info.json")
+    if os.path.isfile(data_file):
+        with open(data_file) as f:
+            formula_json = json.loads(f.read())
+    else:
+        # For each formula, try to get it's json data. There are probably a few thousand, so
+        # this may take a few minutes
+        formula_json = get_available_formula_json_parallel(bare_formulas)
+
+        # Save off the data so I don't have to get it every time I test the script
+        with open(os.path.join(this_dir, "../data/formula_info.json"), "w") as f:
+            f.write(json.dumps(formula_json))
 
     # Count the number of times a formula is used as a dependency
     depended_upon_formulae = Counter(
@@ -141,7 +147,7 @@ if __name__ == "__main__":
     )
     depended_upon_formulae = pd.DataFrame(
         depended_upon_formulae.items(), columns=["formula", "count"]
-    )
+    ).sort_values("count", ascending=False)
 
     run_time = time() - start_time
     print(f"get_and_clean_data.py -- {run_time:.2f}s")
