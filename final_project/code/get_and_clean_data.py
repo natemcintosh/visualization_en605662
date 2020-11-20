@@ -102,21 +102,17 @@ def create_formula_install_df(data_dict: Dict[str, pd.DataFrame]) -> pd.DataFram
     """
     # Downselect to just the dfs of formula data
     downselected = {
-        title: data_dict[title]
-        for title in data_dict.keys()
-        if ("cask" not in title) and ("build" not in title)
+        url: data_dict[url]
+        for url in data_dict.keys()
+        if ("cask" not in url) and ("build" not in url)
     }
 
     # Split into install and install on request
     installs = {
-        title: downselected[title]
-        for title in downselected.keys()
-        if "on-request" not in title
+        url: downselected[url] for url in downselected.keys() if "on-request" not in url
     }
     titles = set(downselected.keys())
-    on_request = {
-        title: downselected[title] for title in titles.difference(installs.keys())
-    }
+    on_request = {url: downselected[url] for url in titles.difference(installs.keys())}
 
     # Build up a dataframe from the regular install dataframes
     reg_df = pd.concat(
@@ -160,6 +156,33 @@ def add_desired_cols(url: str, df: pd.DataFrame) -> pd.DataFrame:
     df.os = df.os.astype("string")
     df["n_days"] = n_days
     return df
+
+
+def create_cask_install_df(data_dict: Dict[str, pd.DataFrame]) -> pd.DataFrame:
+    """
+    Create a single dataframe of cask install information
+    """
+    # Filter down to just the cask entries in the dict
+    casks = {url: data_dict[url] for url in data_dict.keys() if "cask" in url}
+
+    # Add n_days as a column to each dataframe
+    for url, df in casks.items():
+        df["n_days"] = int(re.findall(r"(\d+)d\.json$", url)[0])
+
+    # Stack the dfs and return
+    return pd.concat(casks.values())
+
+
+def create_build_errors_df(data_dict: Dict[str, pd.DataFrame]) -> pd.DataFrame:
+    """
+    Create a single dataframe of all the build error info with new columns for n_days, 
+    os
+    """
+    # Get just the build errors
+    errors = {url: data_dict[url] for url in data_dict.keys() if "build-error" in url}
+
+    # Create the main dataframe and return it
+    return pd.concat([add_desired_cols(url, df) for url, df in errors.items()])
 
 
 install_and_error_urls = [
@@ -229,6 +252,12 @@ if __name__ == "__main__":
     # Get all formula install events into a single df with columns:
     # formula, count, pct_on_request, percent, os, n_days
     formula_installs = create_formula_install_df(data_dict)
+
+    # Get all cask install information
+    cask_installs = create_cask_install_df(data_dict)
+
+    # Get all the build error information
+    build_errors = create_build_errors_df(data_dict)
 
     run_time = time() - start_time
     print(f"get_and_clean_data.py -- {run_time:.2f}s")
