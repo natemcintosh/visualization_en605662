@@ -2,7 +2,7 @@ from urllib import request
 from urllib.error import HTTPError
 import json
 import itertools
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Tuple
 from collections import Counter
 from warnings import warn
 from multiprocessing import Pool
@@ -10,6 +10,7 @@ import os
 import re
 
 import pandas as pd
+from graphviz import Digraph
 
 
 def get_response(url: str) -> dict:
@@ -185,6 +186,20 @@ def create_build_errors_df(data_dict: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     return pd.concat([add_desired_cols(url, df) for url, df in errors.items()])
 
 
+def create_dependencies_graph(
+    formula_dict: dict, dependency_key_name: str
+) -> List[Tuple[str, str]]:
+    """
+    Create a list of mappings from package and a single dependency
+    """
+    return list(
+        itertools.chain.from_iterable(
+            [(d["name"], dep) for dep in d.get(dependency_key_name, [])]
+            for d in formula_dict
+        )
+    )
+
+
 install_and_error_urls = [
     "https://formulae.brew.sh/api/analytics/install/30d.json",
     "https://formulae.brew.sh/api/analytics/install/90d.json",
@@ -245,6 +260,25 @@ if __name__ == "__main__":
     depended_upon_formulae = pd.DataFrame(
         depended_upon_formulae.items(), columns=["formula", "count"]
     ).sort_values("count", ascending=False)
+
+    # Get a list of dicts mapping a package to one of its dependencies
+    dep_graph = create_dependencies_graph(formula_json, "dependencies")
+
+    dot = Digraph(name="dependency graph")
+    for d in dep_graph:
+        dot.edge(*d)
+    
+    output_folder = os.path.join(this_dir, "..", "output")
+    dot.render(os.path.join(output_folder, "dep_graph.gv"), view=True)
+
+    # Get a list of dicts mapping a package to one of its recommended dependencies
+    rec_dep_graph = create_dependencies_graph(formula_json, "recommended_dependencies")
+
+    # Get a list of dicts mapping a package to one of its optional dependencies
+    opt_dep_graph = create_dependencies_graph(formula_json, "optional_dependencies")
+
+    # Get a list of dicts mapping a package to one of its requirements
+    req_dep_graph = create_dependencies_graph(formula_json, "requirements")
 
     # Create dict of url: df
     data_dict = dict(zip(install_and_error_urls, dfs))
