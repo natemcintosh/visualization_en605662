@@ -264,12 +264,15 @@ if __name__ == "__main__":
     # Get a list of dicts mapping a package to one of its dependencies
     dep_graph = create_dependencies_graph(formula_json, "dependencies")
 
+    # Create an empty digraph object, and fill it with connected edges
     dot = Digraph(name="dependency graph")
     for d in dep_graph:
         dot.edge(*d)
-    
-    output_folder = os.path.join(this_dir, "..", "output")
-    dot.render(os.path.join(output_folder, "dep_graph.gv"), view=True)
+
+    # Save the digraph to a file if it doesn't already exist
+    output_file = os.path.join(this_dir, "..", "output", "dep_graph.gv")
+    if os.path.isfile(output_file) is False:
+        dot.render(output_file, view=True)
 
     # Get a list of dicts mapping a package to one of its recommended dependencies
     rec_dep_graph = create_dependencies_graph(formula_json, "recommended_dependencies")
