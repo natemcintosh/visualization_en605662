@@ -15,7 +15,7 @@ from graphviz import Digraph
 
 def main():
     """
-    The main functionality of this script. Written here in a function for ease of 
+    The main functionality of this script. Written here in a function for ease of
     calling from other scripts
     """
     from time import time
@@ -75,11 +75,15 @@ def main():
 
     # Get a list of dicts mapping a package to one of its recommended dependencies
     rec_dep_graph = create_dependencies_graph(formula_json, "recommended_dependencies")
-    json_cache(rec_dep_graph, os.path.join(data_dir, "recommended_dependencies_graph.json"))
+    json_cache(
+        rec_dep_graph, os.path.join(data_dir, "recommended_dependencies_graph.json")
+    )
 
     # Get a list of dicts mapping a package to one of its optional dependencies
     opt_dep_graph = create_dependencies_graph(formula_json, "optional_dependencies")
-    json_cache(opt_dep_graph, os.path.join(data_dir, "optional_dependencies_graph.json"))
+    json_cache(
+        opt_dep_graph, os.path.join(data_dir, "optional_dependencies_graph.json")
+    )
 
     # Get a list of dicts mapping a package to one of its requirements
     req_dep_graph = create_dependencies_graph(formula_json, "requirements")
@@ -268,7 +272,7 @@ def create_cask_install_df(data_dict: Dict[str, pd.DataFrame]) -> pd.DataFrame:
 
 def create_build_errors_df(data_dict: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    Create a single dataframe of all the build error info with new columns for n_days, 
+    Create a single dataframe of all the build error info with new columns for n_days,
     os
     """
     # Get just the build errors
@@ -328,76 +332,4 @@ install_and_error_urls = [
 
 if __name__ == "__main__":
     main()
-    # from time import time
 
-    # start_time = time()
-
-    # # Build dataframes from the json data at the URLs listed above
-    # dfs = [build_df_from_items(get_response(url)) for url in install_and_error_urls]
-
-    # # From all the formulas in `dfs`, get a list of the unique ones
-    # formulas_with_args = get_unique_formulas(dfs)
-
-    # # Many of the formulas have arguments with them. Get just the name of the formula
-    # bare_formulas = set(f.split()[0] for f in formulas_with_args)
-
-    # # If data exists in a data folder, get it. If not, get the data from the internet
-    # this_dir = os.path.dirname(__file__)
-    # data_file = os.path.join(this_dir, "..", "data", "formula_info.json")
-    # if os.path.isfile(data_file):
-    #     with open(data_file) as f:
-    #         formula_json = json.loads(f.read())
-    # else:
-    #     # For each formula, try to get it's json data. There are probably a few thousand, so
-    #     # this may take a few minutes
-    #     formula_json = get_available_formula_json_parallel(bare_formulas)
-
-    #     # Save off the data so I don't have to get it every time I test the script
-    #     with open(data_file, "w") as f:
-    #         f.write(json.dumps(formula_json))
-
-    # # Count the number of times a formula is used as a dependency
-    # depended_upon_formulae = Counter(
-    #     itertools.chain.from_iterable(f.get("dependencies", []) for f in formula_json)
-    # )
-    # depended_upon_formulae = pd.DataFrame(
-    #     depended_upon_formulae.items(), columns=["formula", "count"]
-    # ).sort_values("count", ascending=False)
-
-    # # Get a list of dicts mapping a package to one of its dependencies
-    # dep_graph = create_dependencies_graph(formula_json, "dependencies")
-
-    # # Create an empty digraph object, and fill it with connected edges
-    # dot = Digraph(name="dependency graph")
-    # for d in dep_graph:
-    #     dot.edge(*d)
-
-    # # Save the digraph to a file if it doesn't already exist
-    # dep_graph_filename = os.path.join(this_dir, "..", "plots", "dep_graph.gv")
-    # if os.path.isfile(dep_graph_filename) is False:
-    #     dot.render(dep_graph_filename, view=True)
-
-    # # Get a list of dicts mapping a package to one of its recommended dependencies
-    # rec_dep_graph = create_dependencies_graph(formula_json, "recommended_dependencies")
-
-    # # Get a list of dicts mapping a package to one of its optional dependencies
-    # opt_dep_graph = create_dependencies_graph(formula_json, "optional_dependencies")
-
-    # # Get a list of dicts mapping a package to one of its requirements
-    # req_dep_graph = create_dependencies_graph(formula_json, "requirements")
-
-    # # Create dict of url: df
-    # data_dict = dict(zip(install_and_error_urls, dfs))
-
-    # # Get all formula install events into a single df with columns:
-    # # formula, count, pct_on_request, percent, os, n_days
-    # formula_installs = create_formula_install_df(data_dict)
-
-    # # Get all cask install information
-    # cask_installs = create_cask_install_df(data_dict)
-
-    # # Get all the build error information
-    # build_errors = create_build_errors_df(data_dict)
-
-    # run_time = time() - start_time
-    # print(f"get_and_clean_data.py -- {run_time:.2f}s")
