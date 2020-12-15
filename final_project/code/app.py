@@ -1,4 +1,5 @@
 import os
+import json
 
 import dash
 import dash_core_components as dcc
@@ -7,6 +8,7 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 from dash_html_components.Div import Div
 import plotly.graph_objects as go
+import pandas as pd
 
 import create_figs
 
@@ -20,7 +22,20 @@ ratios_dict = create_figs.request_ratio(os.path.join(data_dir, "formula_installs
 
 dep_heatmap = create_figs.dep_matrix(os.path.join(data_dir, "dep_graph.json"))
 
-dep_tree = create_figs.create_dep_tree(os.path.join(data_dir, "dep_graph.json"), "trimage")
+dep_tree = create_figs.create_dep_tree(
+    os.path.join(data_dir, "dep_graph.json"), "trimage"
+)
+
+
+def get_tree_options():
+    with open(os.path.join(data_dir, "dep_graph.json")) as fio:
+        deps = json.loads(fio.read())
+    return (
+        pd.DataFrame(data=deps, columns=["package", "depends_on"])
+        .sort_values("package")
+        .package.unique()
+    )
+
 
 external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
 
@@ -55,7 +70,13 @@ app.layout = html.Div(
         ),
         html.Div(
             [
-                dcc.Graph(id="dep-tree", figure=dep_tree),
+                dcc.Dropdown(
+                    id="tree-dropdown",
+                    options=[dict(label=v, value=v) for v in get_tree_options()],
+                    value="python@3.9",
+                    searchable=True,
+                ),
+                dcc.Graph(id="tree-figure"),
                 dcc.Dropdown(
                     id="request-ratio-dropdown",
                     options=[
@@ -94,10 +115,17 @@ def update_ratio_chart(which_os):
     return fig
 
 
+@app.callback(Output("tree-figure", "figure"), [Input("tree-dropdown", "value")])
+def update_tree_chart(which_formula):
+    return create_figs.create_dep_tree(
+        os.path.join(data_dir, "dep_graph.json"), which_formula
+    )
+
+
 if __name__ == "__main__":
     # Collect and save all the relevant data
-    # from get_and_clean_data import main as data_main
-    # data_main()
+    from get_and_clean_data import main as data_main
+    data_main()
 
     # Run the server
     app.run_server(debug=True)

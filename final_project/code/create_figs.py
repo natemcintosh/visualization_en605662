@@ -197,10 +197,17 @@ def create_dep_tree(filename: str, formula: str) -> go.Figure:
     ), f"Package asked for ({formula}) does not exist"
 
     requirements_list = build_requirements_list(df, formula)
-    df_for_plotting = get_pprint_version_df(requirements_list)
-    return px.line(
-        df_for_plotting, x="x", y="y", text="text", title="Dependency Tree"
-    )
+    nodes_df = get_pprint_version_df(requirements_list)
+
+    # Create a df of edges    
+    # Iterate over items in nodes_df. For each, get df.depends_on.loc[df.package.eq(formula_i)]
+    # Create pairs of formula_i -> dep
+    # Match pairs with (x,y) locations
+
+
+    fig = px.scatter(nodes_df, x="x", y="y", text="text", title="Dependency Tree")
+    # fig.update_traces(line_shape="vh")
+    return fig
 
 
 def get_pprint_version_df(l: list) -> pd.DataFrame:
